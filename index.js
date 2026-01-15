@@ -21,7 +21,7 @@ const CONFIG = {
   headless: false,
   timeout: 30000,
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  keepBrowserOpen: true,
+  keepBrowserOpen: false,
   screenshotDir: path.join(__dirname, 'screenshots'),
   selectors: {
     loginButton: '.login-btn, [class*="login"]',
