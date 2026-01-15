@@ -26,6 +26,18 @@
 npm install
 ```
 
+**注意**：根据用户实践，在某些青龙面板环境中，可能需要手动登录到服务器上安装Chromium：
+
+```bash
+# Debian/Ubuntu系统
+sudo apt-get update
+sudo apt-get install -y chromium
+
+# CentOS/RHEL系统
+sudo yum update
+sudo yum install -y chromium
+```
+
 ### 2. 配置环境变量
 
 复制 `.env.example` 为 `.env`：
@@ -108,6 +120,8 @@ sanguosha-auto-sign/
 
 #### 步骤3：安装依赖
 
+**注意**：根据用户实践，通过Web界面安装依赖的方式可能无法正常工作，推荐使用命令行安装方式。
+
 **通过Web界面安装：**
 
 1. 在青龙面板Web界面中，点击左侧菜单的 **"依赖管理"**
@@ -118,6 +132,8 @@ sanguosha-auto-sign/
 6. 等待安装完成（通常需要1-3分钟）
 
 **通过命令行安装：**
+
+**推荐**：根据用户实践，此方式更为可靠
 
 1. 通过SSH连接到青龙面板服务器
 2. 进入脚本目录：
@@ -190,6 +206,61 @@ sanguosha-auto-sign/
    ql task list
    ```
    应该能看到刚添加的定时任务
+
+### 关于青龙面板命令：task vs node
+
+#### 什么是 `task xxx.js`？
+
+`task xxx.js` 是青龙面板的**内置命令**，用于执行青龙面板系统中的脚本。它有以下特点：
+
+- ✅ 自动处理脚本依赖和环境
+- ✅ 脚本必须放在 `/ql/scripts/` 目录下
+- ✅ 自动记录日志到青龙面板
+- ✅ 支持青龙面板的任务管理功能
+- ✅ 简单易用，适合青龙面板自带脚本
+
+#### 什么是 `node xxx.js`？
+
+`node xxx.js` 是**直接使用Node.js**运行脚本的命令。它有以下特点：
+
+- ✅ 可以执行任何Node.js脚本
+- ✅ 支持自定义依赖管理（package.json）
+- ✅ 可以在任何目录下执行
+- ✅ 支持更复杂的执行流程
+- ✅ 可以组合多个命令（如 `cd && node`）
+- ✅ 更灵活，适合复杂的自定义脚本
+
+#### 为什么我们使用 `node xxx.js`？
+
+我们的脚本使用 `node xxx.js` 而不是 `task xxx.js`，主要有以下原因：
+
+1. **复杂的依赖管理**：我们的脚本有自己的 `package.json` 和依赖，需要使用 `npm install` 安装
+2. **需要进入特定目录**：脚本需要先进入 `/ql/scripts/sanguosha-auto-sign/` 目录才能执行
+3. **灵活的执行流程**：我们的脚本需要设置环境变量、处理登录流程、保持在线等复杂操作
+4. **独立的脚本系统**：我们的脚本是一个独立的项目，不依赖青龙面板的脚本系统
+
+#### 两种方式的对比
+
+| 特性 | `task xxx.js` | `node xxx.js` |
+|------|---------------|---------------|
+| 适用场景 | 青龙面板自带脚本 | 自定义/第三方脚本 |
+| 依赖管理 | 自动处理 | 手动处理 |
+| 执行位置 | 固定在 `/ql/scripts/` | 任意目录 |
+| 日志记录 | 自动记录到青龙面板 | 输出到控制台 |
+| 灵活性 | 较低 | 较高 |
+| 命令复杂度 | 简单 | 可能需要组合命令 |
+
+#### 可以修改为 `task` 命令吗？
+
+是的，可以修改为使用 `task` 命令，根据用户实践，使用以下命令也可以成功运行：
+
+```bash
+task sanguosha-auto-sign/index.js
+```
+
+这种方式不需要调整脚本结构，直接使用青龙面板的 `task` 命令执行脚本目录下的文件，适合希望使用青龙面板内置命令管理脚本的用户。
+
+但考虑到我们脚本的复杂性和独立性，使用 `node xxx.js` 更为灵活，适合需要自定义执行流程的场景。
 
 #### 步骤6：手动执行测试
 
@@ -397,7 +468,46 @@ npm install --ignore-scripts
    date
    ```
 
-#### 问题4：登录失败
+#### 问题4：Cannot find module '/ql/index.js' 错误
+
+**症状**: 执行任务时出现以下错误：
+```
+Error: Cannot find module '/ql/index.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1383:15)
+```
+
+**原因**: 任务命令设置错误，青龙面板试图执行 `/ql/index.js` 文件，但这个文件不存在。
+
+**解决方案**:
+
+1. **检查任务命令**：
+   - 打开青龙面板Web界面
+   - 点击左侧菜单的 **"定时任务"**
+   - 找到 **"三国杀OL自动签到"** 任务
+   - 点击任务右侧的 **"编辑"** 按钮
+   - 检查 **"命令"** 字段是否正确
+   
+2. **使用正确的命令**：
+   - **错误的命令**：`node index.js`
+   - **错误的命令**：`node /ql/index.js`
+   - **正确的命令**：`cd /ql/scripts/sanguosha-auto-sign && node index.js`
+   
+3. **重新设置任务命令**：
+   - 将命令修改为：
+     ```bash
+     cd /ql/scripts/sanguosha-auto-sign && node index.js
+     ```
+   - 点击 **"确定"** 保存
+   - 重新运行任务测试
+
+4. **检查脚本文件位置**：
+   - 确认脚本文件是否正确上传到了 `/ql/scripts/sanguosha-auto-sign/` 目录：
+     ```bash
+     ls -la /ql/scripts/sanguosha-auto-sign/
+     ```
+   - 应该能看到 `package.json` 和 `index.js` 文件
+
+#### 问题5：登录失败
 
 **症状**: 脚本提示登录失败
 
@@ -408,26 +518,92 @@ npm install --ignore-scripts
 4. 如果需要验证码，脚本会自动切换到有头模式
 5. 可以临时修改脚本，将 `headless` 设置为 `false`，观察登录过程
 
-#### 问题5：浏览器无法启动
+#### 问题6：浏览器无法启动
 
-**症状**: 脚本提示无法启动浏览器
+**症状**: 脚本提示无法启动浏览器，错误信息包含：
+```
+ERROR:ui/ozone/platform/x11/ozone_platform_x11.cc:256] Missing X server or $DISPLAY
+ERROR:ui/aura/env.cc:257] The platform failed to initialize.  Exiting.
+Failed to launch the browser process!
+```
+
+**原因**: 在无头服务器环境下运行Chrome时，缺少图形界面支持导致启动失败。
 
 **解决方案**:
-1. 检查服务器是否安装了Chrome或Chromium：
-   ```bash
-   google-chrome --version
-   chromium --version
-   ```
-2. 如果未安装，安装Chromium：
-   ```bash
-   # Debian/Ubuntu
-   apt-get update
-   apt-get install -y chromium
-   
-   # CentOS/RHEL
-   yum install -y chromium
-   ```
-3. 如果服务器是ARM架构，可能需要安装ARM版本的Chromium
+
+**方案1：使用正确的Chrome启动参数**
+
+确保脚本使用了适合无头服务器环境的Chrome启动参数：
+
+```javascript
+const browser = await puppeteer.launch({
+  headless: true,
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-gpu',
+    '--disable-dev-shm-usage',
+    '--disable-software-rasterizer',
+    '--no-xshm',
+    '--ignore-certificate-errors',
+    '--disable-extensions',
+    '--disable-web-security',
+    '--disable-features=IsolateOrigins,site-per-process',
+    '--disable-blink-features=AutomationControlled'
+  ]
+});
+```
+
+**方案2：安装必要的图形库**
+
+在服务器上安装必要的图形库：
+
+```bash
+# Debian/Ubuntu
+apt-get update
+apt-get install -y libgconf-2-4 libx11-xcb1 libxcb-dri3-0 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libnss3 libxrandr2 libasound2 libatk1.0-0 libatk-bridge2.0-0 libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgdk-pixbuf2.0-0 libgbm1 libharfbuzz0b libdrm2
+
+# CentOS/RHEL
+yum update
+yum install -y libX11 libXcomposite libXcursor libXdamage libXext libXfixes libXi libXrandr libXtst cups-libs libpng libxcb libxkbcommon-x11 pango atk at-spi2-atk gtk3
+```
+
+**方案3：使用XVFB**
+
+在虚拟帧缓冲区中运行Chrome：
+
+```bash
+# 安装XVFB
+apt-get install -y xvfb
+
+# 使用XVFB运行脚本
+xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node index.js
+```
+
+**方案4：检查Chrome是否已安装**
+
+确保服务器已经安装了Chrome或Chromium：
+
+```bash
+# 检查Chrome
+google-chrome --version
+
+# 检查Chromium
+chromium --version
+
+# 如果未安装，安装Chromium
+apt-get install -y chromium
+```
+
+**方案5：使用系统Chrome**
+
+配置Puppeteer使用系统已安装的Chrome：
+
+```bash
+export PUPPETEER_EXECUTABLE_PATH=$(which google-chrome)
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+node index.js
+```
 
 ## 配置说明
 
