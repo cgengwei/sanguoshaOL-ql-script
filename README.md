@@ -154,12 +154,12 @@ sanguosha-auto-sign/
 2. 点击 **"新建变量"** 按钮
 3. 填写环境变量信息：
    - **名称**: `SANGUOSHA_USERNAME`
-   - **值**: 你的三国杀OL账号（例如：`cgengwei`）
+   - **值**: 你的三国杀OL账号（例如：`testuser`）
    - **备注**: 三国杀OL账号
 4. 点击 **"确定"** 按钮保存
 5. 重复步骤3，添加第二个环境变量：
    - **名称**: `SANGUOSHA_PASSWORD`
-   - **值**: 你的三国杀OL密码（例如：`Cgengwei123`）
+   - **值**: 你的三国杀OL密码（例如：`password`）
    - **备注**: 三国杀OL密码
 6. 确认两个环境变量都已添加成功
 
@@ -168,8 +168,8 @@ sanguosha-auto-sign/
 1. 通过SSH连接到青龙面板服务器
 2. 使用青龙面板命令添加环境变量：
    ```bash
-   ql env set SANGUOSHA_USERNAME "cgengwei"
-   ql env set SANGUOSHA_PASSWORD "Cgengwei123"
+   ql env set SANGUOSHA_USERNAME "testuser"
+   ql env set SANGUOSHA_PASSWORD "password"
    ```
 3. 确认环境变量添加成功：
    ```bash
