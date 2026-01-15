@@ -245,26 +245,120 @@ sanguosha-auto-sign/
 
 **症状**: 安装依赖时报错
 
+**错误示例**:
+```
+npm warn deprecated puppeteer@21.11.0: < 24.15.0 is no longer supported
+npm error code 1
+npm error command failed
+npm error ERROR: Failed to set up chrome-headless-shell
+npm error Client network socket disconnected before secure TLS connection was established
+```
+
 **解决方案**:
-1. 检查Node.js版本是否 >= 14.0.0：
+
+**方案1：设置环境变量跳过Chromium下载（推荐）**
+
+Puppeteer在安装时会尝试下载Chromium，如果网络连接失败会导致安装错误。可以通过设置环境变量跳过下载，使用系统已安装的Chrome：
+
+```bash
+# 在安装依赖之前设置环境变量
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export PUPPETEER_SKIP_DOWNLOAD=true
+
+# 然后安装依赖
+cd /ql/scripts/sanguosha-auto-sign
+npm install
+```
+
+**方案2：使用系统已安装的Chrome**
+
+如果服务器已经安装了Chrome或Chromium，可以配置Puppeteer使用系统浏览器：
+
+1. 检查Chrome是否已安装：
    ```bash
-   node -v
+   google-chrome --version
+   chromium --version
    ```
-2. 如果版本过低，升级Node.js：
+
+2. 如果已安装，在运行脚本时设置环境变量：
    ```bash
-   # 使用nvm升级
-   nvm install 18
-   nvm use 18
-   
-   # 或者使用包管理器升级
-   yum install nodejs
-   ```
-3. 重新安装依赖：
-   ```bash
+   export PUPPETEER_EXECUTABLE_PATH=$(which google-chrome)
    cd /ql/scripts/sanguosha-auto-sign
-   rm -rf node_modules package-lock.json
-   npm install
+   node index.js
    ```
+
+**方案3：检查Node.js版本**
+
+Puppeteer 21.x版本要求Node.js >= 18.0.0：
+
+```bash
+# 检查Node.js版本
+node -v
+
+# 如果版本过低，升级Node.js
+# 使用nvm升级
+nvm install 18
+nvm use 18
+
+# 或者使用包管理器升级
+# Debian/Ubuntu
+apt-get update
+apt-get install -y nodejs
+
+# CentOS/RHEL
+yum install -y nodejs
+```
+
+**方案4：重新安装依赖**
+
+如果安装过程中出错，清理缓存后重新安装：
+
+```bash
+cd /ql/scripts/sanguosha-auto-sign
+
+# 删除node_modules和package-lock.json
+rm -rf node_modules package-lock.json
+
+# 清理npm缓存
+npm cache clean --force
+
+# 重新安装
+npm install
+```
+
+**方案5：使用国内镜像源**
+
+如果网络连接问题是因为访问国外源慢，可以使用国内镜像：
+
+```bash
+# 使用淘宝镜像
+npm config set registry https://registry.npmmirror.com
+
+# 或者使用华为镜像
+npm config set registry https://mirrors.huaweicloud.com/repository/npm/
+
+# 然后安装
+npm install
+```
+
+**方案6：手动下载Chromium**
+
+如果自动下载失败，可以手动下载Chromium：
+
+```bash
+# 下载Chromium
+cd /ql/scripts/sanguosha-auto-sign
+wget https://github.com/puppeteer/puppeteer/releases/download/v21.11.0/chromium-linux-1205149219.zip
+
+# 解压
+unzip chromium-linux-1205149219.zip
+
+# 设置环境变量
+export PUPPETEER_EXECUTABLE_PATH=/ql/scripts/sanguosha-auto-sign/chromium-linux-1205149219/chrome-linux/chrome
+
+# 安装依赖
+npm install --ignore-scripts
+```
 
 #### 问题2：环境变量未生效
 

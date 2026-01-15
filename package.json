@@ -1,7 +1,7 @@
 {
   "name": "sanguosha-auto-sign",
   "version": "1.0.0",
-  "description": "三国杀OL自动签到脚本 - 支持签到和领取发财树元宝",
+  "description": "三国杀OL自动签到脚本 - 自动登录并保持在线2小时",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -14,6 +14,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^21.11.0"
   }
 }
