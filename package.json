@@ -1,0 +1,19 @@
+{
+  "name": "sanguosha-auto-sign",
+  "version": "1.0.0",
+  "description": "三国杀OL自动签到脚本 - 支持签到和领取发财树元宝",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "sanguosha",
+    "auto-sign",
+    "puppeteer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}
