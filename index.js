@@ -780,7 +780,7 @@ async function main() {
   const username = process.env.SANGUOSHA_USERNAME;
   const password = process.env.SANGUOSHA_PASSWORD;
   
-  log('三国杀OL自动签到脚本启动');
+  log('三国杀OL自动登录脚本启动');
   log(`账号: ${username}`);
   
   let browser;
@@ -795,32 +795,17 @@ async function main() {
     
     await login(page, username, password);
     
-    // 关闭游戏弹窗
-    await closeGamePopup(page);
+    log('登录成功！等待游戏页面加载...');
+    log('将在2分钟后关闭浏览器...');
     
-    log('登录成功！保持在线状态...');
-    log('等待2小时后自动关闭浏览器...');
-    
-    const twoHoursInMs = 2 * 60 * 60 * 1000;
-    const startTime = Date.now();
-    
-    for (let i = 0; i < 120; i++) {
+    // 等待游戏页面加载2分钟
+    const twoMinutesInMs = 2 * 60 * 1000;
+    for (let i = 0; i < 2; i++) {
       await sleep(60000);
-      
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, twoHoursInMs - elapsed);
-      const minutes = Math.floor(remaining / (60 * 1000));
-      const seconds = Math.floor((remaining % (60 * 1000)) / 1000);
-      
-      log(`保持在线中... 已运行 ${Math.floor(elapsed / (60 * 1000))} 分钟，剩余 ${minutes} 分 ${seconds} 秒`);
-      
-      // 每隔3分钟执行一次保持在线操作
-      if ((i + 1) % 3 === 0) {
-        await performKeepAliveAction(page);
-      }
+      log(`游戏页面加载中... 已等待 ${i + 1} 分钟`);
     }
     
-    log('已保持在线2小时，准备关闭浏览器...');
+    log('已等待2分钟，准备关闭浏览器...');
     
     await page.close();
   } catch (error) {
