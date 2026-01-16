@@ -18,7 +18,7 @@ const CONFIG = {
   url: 'https://web.sanguosha.com/',
   loginUrl: 'https://web.sanguosha.com/',
   userDataDir: path.join(__dirname, 'chrome_data'),
-  headless: false,
+  headless: false, // 本地测试设置为false，显示浏览器界面
   timeout: 30000,
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   keepBrowserOpen: false,
@@ -53,9 +53,86 @@ async function takeScreenshot(page, name) {
     const filename = path.join(CONFIG.screenshotDir, `${name}_${timestamp}.png`);
     await page.screenshot({ path: filename, fullPage: true });
     log(`截图已保存: ${filename}`);
+    return filename;
   } catch (error) {
     log(`截图失败: ${error.message}`);
+    return null;
   }
+}
+
+async function clickAt(page, x, y, description = '') {
+  try {
+    await page.mouse.move(x, y);
+    await sleep(500);
+    await page.mouse.down();
+    await sleep(100);
+    await page.mouse.up();
+    log(`${description} 点击坐标: (${x}, ${y})`);
+    return true;
+  } catch (error) {
+    log(`${description} 点击失败: ${error.message}`);
+    return false;
+  }
+}
+
+async function clickRelative(page, relativeX, relativeY, description = '') {
+  try {
+    const viewport = page.viewport();
+    if (!viewport) {
+      throw new Error('无法获取视口大小');
+    }
+    
+    const x = Math.floor(viewport.width * relativeX);
+    const y = Math.floor(viewport.height * relativeY);
+    
+    return await clickAt(page, x, y, description);
+  } catch (error) {
+    log(`${description} 相对坐标点击失败: ${error.message}`);
+    return false;
+  }
+}
+
+async function closeGamePopup(page) {
+  log('正在尝试关闭游戏弹窗...');
+  
+  // 截图保存以便分析
+  await takeScreenshot(page, 'game_popup');
+  
+  // 假设弹窗关闭按钮在右上角，使用相对坐标点击
+  // 这里使用相对坐标(0.9, 0.1)，即右上角区域
+  const success = await clickRelative(page, 0.9, 0.1, '关闭弹窗');
+  
+  if (success) {
+    log('弹窗关闭成功');
+  } else {
+    log('弹窗关闭失败，可能需要调整坐标');
+  }
+  
+  await sleep(2000);
+  return success;
+}
+
+async function performKeepAliveAction(page) {
+  log('开始执行保持在线操作...');
+  
+  // 1. 点击游戏页面中的个人按钮
+  // 假设个人按钮在右下角，使用相对坐标(0.9, 0.9)
+  log('1. 点击个人按钮');
+  await clickRelative(page, 0.9, 0.9, '点击个人按钮');
+  await sleep(3000);
+  
+  // 2. 等待个人信息弹窗出现
+  log('2. 等待个人信息弹窗出现');
+  await sleep(2000);
+  await takeScreenshot(page, 'personal_info_popup');
+  
+  // 3. 点击个人信息弹窗上的关闭按钮
+  log('3. 关闭个人信息弹窗');
+  // 假设关闭按钮在弹窗右上角，使用相对坐标(0.85, 0.2)
+  await clickRelative(page, 0.85, 0.2, '关闭个人信息弹窗');
+  await sleep(2000);
+  
+  log('保持在线操作完成');
 }
 
 async function createBrowser() {
@@ -74,7 +151,13 @@ async function createBrowser() {
         log(`找到Chrome: ${chromePath}`);
       } catch {
         log('未找到Chrome浏览器，尝试使用Chromium...');
-        chromePath = execSync('which chromium').toString().trim();
+        try {
+          chromePath = execSync('which chromium').toString().trim();
+          log(`找到Chromium: ${chromePath}`);
+        } catch {
+          log('未找到Chromium');
+          chromePath = undefined;
+        }
       }
     }
   } catch (error) {
@@ -84,7 +167,8 @@ async function createBrowser() {
   }
   
   const options = {
-    headless: true,
+    headless: true, // 强制使用无头模式，适合服务器环境
+    userDataDir: CONFIG.userDataDir,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -97,7 +181,35 @@ async function createBrowser() {
       '--disable-web-security',
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-blink-features=AutomationControlled',
-      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      '--headless=new', // 现代无头模式
+      '--disable-gpu-sandbox',
+      '--disable-ipc-flooding-protection',
+      '--disable-breakpad',
+      '--disable-crash-reporter',
+      '--disable-logging',
+      '--disable-metrics',
+      '--disable-metrics-reporting',
+      '--disable-features=HttpsFirstBalancedModeAutoEnable',
+      '--single-process',
+      '--no-zygote',
+      '--no-first-run',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      // 添加解决DBus和X服务器问题的参数
+      '--disable-dbus',
+      '--no-dbus',
+      '--disable-xdg-runtime',
+      '--display=:99',
+      '--ignore-gpu-blacklist',
+      '--ozone-platform=headless',
+      '--use-gl=swiftshader',
+      '--disable-crash-reporter',
+      '--disable-dev-shm-usage',
+      '--remote-debugging-port=9222',
+      '--disable-features=VizDisplayCompositor'
     ]
   };
   
@@ -113,8 +225,15 @@ async function createBrowser() {
   } catch (error) {
     log(`浏览器启动失败: ${error.message}`);
     log('尝试不使用userDataDir重新启动...');
-    delete options.userDataDir;
-    const browser = await puppeteer.launch(options);
+    
+    // 创建不包含userDataDir的新选项对象
+    const optionsWithoutUserDataDir = {
+      ...options,
+      userDataDir: undefined
+    };
+    
+    const browser = await puppeteer.launch(optionsWithoutUserDataDir);
+    log('浏览器重新启动成功（不使用userDataDir）');
     return browser;
   }
 }
@@ -360,9 +479,17 @@ async function login(page, username, password) {
       
       return true;
     }
+  }
+  
+  return false;
 }
 
 async function waitForLogin(page) {
+  // 添加超时机制，避免无限等待
+  const timeoutMs = 5 * 60 * 1000; // 5分钟超时
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < timeoutMs) {
     try {
       const currentUrl = page.url();
       const isLoggedIn = await page.evaluate(() => {
@@ -392,6 +519,7 @@ async function waitForLogin(page) {
       
       await sleep(2000);
     } catch (error) {
+      log(`等待登录过程中出错: ${error.message}`);
       await sleep(2000);
     }
   }
@@ -667,6 +795,9 @@ async function main() {
     
     await login(page, username, password);
     
+    // 关闭游戏弹窗
+    await closeGamePopup(page);
+    
     log('登录成功！保持在线状态...');
     log('等待2小时后自动关闭浏览器...');
     
@@ -682,6 +813,11 @@ async function main() {
       const seconds = Math.floor((remaining % (60 * 1000)) / 1000);
       
       log(`保持在线中... 已运行 ${Math.floor(elapsed / (60 * 1000))} 分钟，剩余 ${minutes} 分 ${seconds} 秒`);
+      
+      // 每隔3分钟执行一次保持在线操作
+      if ((i + 1) % 3 === 0) {
+        await performKeepAliveAction(page);
+      }
     }
     
     log('已保持在线2小时，准备关闭浏览器...');
