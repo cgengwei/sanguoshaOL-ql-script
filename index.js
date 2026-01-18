@@ -25,8 +25,8 @@ const CONFIG = {
   screenshotDir: path.join(__dirname, 'screenshots'),
   selectors: {
     loginButton: '.login-btn, [class*="login"]',
-    usernameInput: 'input[type="text"], input[name="username"], input[placeholder*="账号"]',
-    passwordInput: 'input[type="password"], input[name="password"], input[placeholder*="密码"]',
+    usernameInput: '#SGS_login-account, input[type="text"], input[name="username"], input[placeholder*="账号"]',
+    passwordInput: '#SGS_login-password, input[type="password"], input[name="password"], input[placeholder*="密码"]',
     submitButton: 'button[type="submit"], .submit-btn, [class*="submit"]',
     signButton: '.sign-btn, [class*="sign"], [class*="签到"]',
     moneyTreeButton: '.money-tree, [class*="发财树"], [class*="元宝"]',
