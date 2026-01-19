@@ -25,8 +25,8 @@ const CONFIG = {
   screenshotDir: path.join(__dirname, 'screenshots'),
   selectors: {
     loginButton: '.login-btn, [class*="login"]',
-    usernameInput: '#SGS_login-account, input[type="text"], input[name="username"], input[placeholder*="账号"]',
-    passwordInput: '#SGS_login-password, input[type="password"], input[name="password"], input[placeholder*="密码"]',
+    usernameInput: '#SGS_login-account',
+    passwordInput: '#SGS_login-password',
     submitButton: 'button[type="submit"], .submit-btn, [class*="submit"]',
     signButton: '.sign-btn, [class*="sign"], [class*="签到"]',
     moneyTreeButton: '.money-tree, [class*="发财树"], [class*="元宝"]',
@@ -283,13 +283,93 @@ async function login(page, username, password) {
     log('尝试使用账号密码登录...');
     
     try {
-      await page.waitForSelector(CONFIG.selectors.usernameInput, { timeout: 5000 });
-      await page.type(CONFIG.selectors.usernameInput, username);
+      let loginFrame = null;
       
-      await page.waitForSelector(CONFIG.selectors.passwordInput, { timeout: 5000 });
-      await page.type(CONFIG.selectors.passwordInput, password);
+      // 检查是否存在iframe，可能登录表单在iframe中
+      const iframes = await page.$$('iframe');
+      if (iframes.length > 0) {
+        log(`发现 ${iframes.length} 个iframe，尝试在iframe中查找登录表单...`);
+        for (let i = 0; i < iframes.length; i++) {
+          try {
+            const frame = await iframes[i].contentFrame();
+            if (frame) {
+              // 先尝试查找登录按钮，确定是否是登录iframe
+              const hasLoginBtn = await frame.$eval('#SGS_login-btn, button[type="submit"]', el => el !== null).catch(() => false);
+              if (hasLoginBtn) {
+                log(`在第 ${i + 1} 个iframe中找到登录按钮，这是登录iframe`);
+                loginFrame = frame;
+                break;
+              }
+              
+              // 如果没找到登录按钮，再尝试查找输入框
+              const hasUsernameInput = await frame.$eval(CONFIG.selectors.usernameInput, el => el !== null).catch(() => false);
+              const hasPasswordInput = await frame.$eval(CONFIG.selectors.passwordInput, el => el !== null).catch(() => false);
+              if (hasUsernameInput || hasPasswordInput) {
+                log(`在第 ${i + 1} 个iframe中找到登录输入框`);
+                loginFrame = frame;
+                break;
+              }
+            }
+          } catch (e) {
+            log(`检查第 ${i + 1} 个iframe时出错: ${e.message}`);
+          }
+        }
+      }
       
-      await sleep(1000);
+      if (loginFrame) {
+        log('在iframe中执行登录操作...');
+        // 在iframe中输入账号密码
+        await loginFrame.waitForSelector(CONFIG.selectors.usernameInput, { timeout: 10000 });
+        await loginFrame.type(CONFIG.selectors.usernameInput, username);
+        
+        await loginFrame.waitForSelector(CONFIG.selectors.passwordInput, { timeout: 10000 });
+        await loginFrame.type(CONFIG.selectors.passwordInput, password);
+        
+        await sleep(1000);
+      } else {
+        // 如果不在iframe中，直接在页面中查找
+        log('在主页面中查找登录表单...');
+        // 使用更长的超时时间，并且使用更灵活的选择器
+        const usernameSelectors = ['#SGS_login-account', 'input[type="text"]', 'input[name="username"]', 'input[placeholder*="账号"]', 'input[id*="account"]', 'input[id*="username"]'];
+        const passwordSelectors = ['#SGS_login-password', 'input[type="password"]', 'input[name="password"]', 'input[placeholder*="密码"]', 'input[id*="password"]'];
+        
+        let foundUsername = false;
+        let foundPassword = false;
+        
+        // 尝试所有可能的账号选择器
+        for (const selector of usernameSelectors) {
+          try {
+            await page.waitForSelector(selector, { timeout: 2000 });
+            await page.type(selector, username);
+            log(`使用选择器 "${selector}" 成功输入账号`);
+            foundUsername = true;
+            break;
+          } catch (e) {
+            log(`尝试选择器 "${selector}" 失败: ${e.message}`);
+          }
+        }
+        
+        // 尝试所有可能的密码选择器
+        for (const selector of passwordSelectors) {
+          try {
+            await page.waitForSelector(selector, { timeout: 2000 });
+            await page.type(selector, password);
+            log(`使用选择器 "${selector}" 成功输入密码`);
+            foundPassword = true;
+            break;
+          } catch (e) {
+            log(`尝试选择器 "${selector}" 失败: ${e.message}`);
+          }
+        }
+        
+        if (!foundUsername || !foundPassword) {
+          log('无法找到账号或密码输入框，尝试截图分析...');
+          await takeScreenshot(page, 'login_page_debug');
+          throw new Error('无法找到登录输入框');
+        }
+        
+        await sleep(1000);
+      }
       
       log('正在查找并勾选协议...');
       
@@ -303,9 +383,11 @@ async function login(page, username, password) {
         ];
         
         let checkboxes = [];
+        const activePage = loginFrame || page;
+        
         for (const selector of agreementSelectors) {
           try {
-            checkboxes = await page.$$(selector);
+            checkboxes = await activePage.$$(selector);
             if (checkboxes.length > 0) {
               log(`找到 ${checkboxes.length} 个复选框: ${selector}`);
               break;
@@ -342,7 +424,8 @@ async function login(page, username, password) {
       log('正在查找并点击登录游戏按钮...');
       
       try {
-        const loginButton = await page.$('#SGS_login-btn');
+        const activePage = loginFrame || page;
+        const loginButton = await activePage.$('#SGS_login-btn');
         
         if (loginButton) {
           log('找到登录游戏按钮');
@@ -350,13 +433,14 @@ async function login(page, username, password) {
           log('已点击登录游戏按钮');
         } else {
           log('未找到登录游戏按钮，尝试使用备用方法');
-          await page.click(CONFIG.selectors.submitButton);
+          await activePage.click(CONFIG.selectors.submitButton);
         }
       } catch (error) {
         log(`点击登录按钮失败: ${error.message}`);
         log('尝试使用备用方法点击...');
         try {
-          await page.click(CONFIG.selectors.submitButton);
+          const activePage = loginFrame || page;
+          await activePage.click(CONFIG.selectors.submitButton);
         } catch (e) {
           log('所有点击方法都失败，请手动点击登录按钮');
         }
