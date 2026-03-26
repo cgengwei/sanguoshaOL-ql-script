@@ -1,13 +1,13 @@
 # 三国杀OL自动登录脚本
 
-基于Puppeteer的三国杀OL自动登录脚本，支持自动登录游戏并等待游戏页面加载2分钟后关闭，可部署到青龙面板定时执行。
+基于Playwright的三国杀OL自动登录脚本，支持自动登录游戏并保持在线2小时后关闭，可部署到青龙面板定时执行。
 
 ## 功能特性
 
 - 自动登录三国杀OL（支持账号密码登录和扫码登录）
 - 自动选择游戏版本
 - 自动进入游戏
-- 等待游戏页面加载2分钟后关闭浏览器
+- 等待游戏页面加载2小时后关闭浏览器
 - 实时输出运行状态
 - 支持有头模式和无头模式切换
 - 保存登录状态，避免重复登录
@@ -24,18 +24,18 @@
 
 ```bash
 npm install
+npx playwright install chromium
 ```
 
-**注意**：根据用户实践，在某些青龙面板环境中，可能需要手动登录到服务器上安装Chromium：
+**注意**：根据用户实践，在某些青龙面板环境中，可能需要手动安装依赖库：
 
 ```bash
 # Debian/Ubuntu系统
-sudo apt-get update
-sudo apt-get install -y chromium
+sudo npx playwright install-deps chromium
 
-# CentOS/RHEL系统
-sudo yum update
-sudo yum install -y chromium
+# 或者手动安装
+sudo apt-get update
+sudo apt-get install -y libgbm1 libasound2 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdbus-1-3 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libasound2
 ```
 
 ### 2. 配置环境变量
@@ -318,66 +318,45 @@ task sanguosha-auto-sign/index.js
 
 **错误示例**:
 ```
-npm warn deprecated puppeteer@21.11.0: < 24.15.0 is no longer supported
-npm error code 1
-npm error command failed
-npm error ERROR: Failed to set up chrome-headless-shell
+npm error ERROR: Failed to set up chromium
 npm error Client network socket disconnected before secure TLS connection was established
 ```
 
 **解决方案**:
 
-**方案1：设置环境变量跳过Chromium下载（推荐）**
+**方案1：安装 Playwright 依赖库（推荐）**
 
-Puppeteer在安装时会尝试下载Chromium，如果网络连接失败会导致安装错误。可以通过设置环境变量跳过下载，使用系统已安装的Chrome：
+Playwright 提供了一个方便的命令来安装所有必要的系统依赖：
 
 ```bash
-# 在安装依赖之前设置环境变量
-export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-export PUPPETEER_SKIP_DOWNLOAD=true
-
-# 然后安装依赖
-cd /ql/scripts/sanguosha-auto-sign
-npm install
+npx playwright install-deps chromium
 ```
 
-**方案2：使用系统已安装的Chrome**
+**方案2：使用系统已安装的 Chrome**
 
-如果服务器已经安装了Chrome或Chromium，可以配置Puppeteer使用系统浏览器：
+如果服务器已经安装了 Chrome 或 Chromium，可以配置 Playwright 使用系统浏览器：
 
-1. 检查Chrome是否已安装：
+1. 检查 Chrome 是否已安装：
    ```bash
    google-chrome --version
    chromium --version
    ```
 
-2. 如果已安装，在运行脚本时设置环境变量：
+2. 如果已安装，在运行脚本时设置环境变量或修改 `index.js` 中的 `CONFIG.chromePath`：
    ```bash
-   export PUPPETEER_EXECUTABLE_PATH=$(which google-chrome)
+   # Linux 下通常在 /usr/bin/google-chrome
+   export CHROME_PATH=$(which google-chrome)
    cd /ql/scripts/sanguosha-auto-sign
    node index.js
    ```
 
-**方案3：检查Node.js版本**
+**方案3：检查 Node.js 版本**
 
-Puppeteer 21.x版本要求Node.js >= 18.0.0：
+Playwright 要求 Node.js >= 14.0.0 (推荐 >= 18.0.0)：
 
 ```bash
-# 检查Node.js版本
+# 检查 Node.js 版本
 node -v
-
-# 如果版本过低，升级Node.js
-# 使用nvm升级
-nvm install 18
-nvm use 18
-
-# 或者使用包管理器升级
-# Debian/Ubuntu
-apt-get update
-apt-get install -y nodejs
-
-# CentOS/RHEL
-yum install -y nodejs
 ```
 
 **方案4：重新安装依赖**
@@ -412,24 +391,9 @@ npm config set registry https://mirrors.huaweicloud.com/repository/npm/
 npm install
 ```
 
-**方案6：手动下载Chromium**
+**方案6：手动下载 Chromium**
 
-如果自动下载失败，可以手动下载Chromium：
-
-```bash
-# 下载Chromium
-cd /ql/scripts/sanguosha-auto-sign
-wget https://github.com/puppeteer/puppeteer/releases/download/v21.11.0/chromium-linux-1205149219.zip
-
-# 解压
-unzip chromium-linux-1205149219.zip
-
-# 设置环境变量
-export PUPPETEER_EXECUTABLE_PATH=/ql/scripts/sanguosha-auto-sign/chromium-linux-1205149219/chrome-linux/chrome
-
-# 安装依赖
-npm install --ignore-scripts
-```
+如果自动下载失败，可以从 Playwright 官方渠道或国内镜像手动下载。
 
 #### 问题2：环境变量未生效
 
@@ -531,25 +495,17 @@ Failed to launch the browser process!
 
 **解决方案**:
 
-**方案1：使用正确的Chrome启动参数**
+**方案1：使用正确的浏览器启动参数**
 
-确保脚本使用了适合无头服务器环境的Chrome启动参数：
+确保脚本使用了适合无头服务器环境的启动参数（Playwright 默认已处理大部分）：
 
 ```javascript
-const browser = await puppeteer.launch({
+const context = await chromium.launch({
   headless: true,
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
-    '--disable-gpu',
-    '--disable-dev-shm-usage',
-    '--disable-software-rasterizer',
-    '--no-xshm',
-    '--ignore-certificate-errors',
-    '--disable-extensions',
-    '--disable-web-security',
-    '--disable-features=IsolateOrigins,site-per-process',
-    '--disable-blink-features=AutomationControlled'
+    '--disable-dev-shm-usage'
   ]
 });
 ```
@@ -595,13 +551,12 @@ chromium --version
 apt-get install -y chromium
 ```
 
-**方案5：使用系统Chrome**
+**方案5：使用系统 Chrome**
 
-配置Puppeteer使用系统已安装的Chrome：
+配置 Playwright 使用系统已安装的 Chrome：
 
 ```bash
-export PUPPETEER_EXECUTABLE_PATH=$(which google-chrome)
-export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export CHROME_PATH=$(which google-chrome)
 node index.js
 ```
 
@@ -660,7 +615,7 @@ const CONFIG = {
 [2026/01/15 02:00:00] 三国杀OL自动签到脚本启动
 [2026/01/15 02:00:00] 账号: cgengwei
 [2026/01/15 02:00:01] 正在启动浏览器...
-[2026/01/15 02:00:02] Chrome浏览器启动成功
+[2026/01/15 02:00:02] Playwright Chromium启动成功
 [2026/01/15 02:00:03] 正在打开登录页面...
 [2026/01/15 02:00:05] 页面加载成功
 [2026/01/15 02:00:06] 尝试使用账号密码登录...

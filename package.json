@@ -1,19 +1,18 @@
 {
   "name": "sanguosha-auto-sign",
   "version": "1.0.0",
-  "description": "三国杀OL自动签到脚本 - 自动登录并保持在线2小时",
+  "description": "三国杀OL自动签到脚本 - 自动登录并保持在线2小时 (Playwright版)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "keywords": [
-    "sanguosha",
-    "auto-sign",
-    "puppeteer"
+    "playwright",
+    "auto-sign"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^18.0.0"
+    "playwright": "^1.58.2"
   }
 }

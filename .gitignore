@@ -5,3 +5,6 @@ chrome_data/
 .DS_Store
 
 screenshots/
+.idea/
+docker/
+package-lock.json
