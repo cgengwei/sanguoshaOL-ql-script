@@ -15,9 +15,9 @@ if (fs.existsSync(envPath)) {
 const CONFIG = {
   url: 'https://web.sanguosha.com/',
   userDataDir: path.join(__dirname, 'chrome_data'),
-  headless: false,
+  headless: process.env.HEADLESS === 'true', // 默认有头模式 (false)，如需无头模式请设置 HEADLESS=true
   timeout: 30000,
-  chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  chromePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   screenshotDir: path.join(__dirname, 'screenshots'),
   selectors: {
     usernameInput: '#SGS_login-account',
@@ -45,10 +45,16 @@ async function createBrowser() {
   if (!process.env.DISPLAY) process.env.DISPLAY = ':99';
   const launchOptions = {
     headless: CONFIG.headless,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--window-size=1920,1080'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--window-size=1920,1080', '--disable-gpu'],
     viewport: { width: 1920, height: 1080 },
   };
-  if (CONFIG.chromePath && fs.existsSync(CONFIG.chromePath)) launchOptions.executablePath = CONFIG.chromePath;
+  
+  // 优先尝试环境变量中的路径
+  const executablePath = process.env.CHROME_BIN || process.env.CHROME_PATH || (process.platform === 'darwin' ? CONFIG.chromePath : '/usr/bin/chromium');
+  if (executablePath && fs.existsSync(executablePath)) {
+    launchOptions.executablePath = executablePath;
+    log(`使用指定浏览器路径: ${executablePath}`);
+  }
 
   try {
     const context = await chromium.launchPersistentContext(CONFIG.userDataDir, launchOptions);
@@ -144,8 +150,8 @@ async function main() {
 
     await login(page);
     
-    log('开始挂机，时长1分钟...');
     const totalMinutes = 120;
+    log(`开始挂机，预计时长 ${totalMinutes} 分钟...`);
     for (let i = 0; i < totalMinutes; i++) {
       await sleep(60000);
       log(`挂机中... 已运行 ${i + 1} 分钟，剩余 ${totalMinutes - (i + 1)} 分钟`);

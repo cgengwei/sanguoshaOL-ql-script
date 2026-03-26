@@ -1,112 +1,65 @@
-# 继承青龙官方 debian 镜像
+# 使用支持 ARM64 (Mac M4) 的青龙基础镜像 (Debian 版)
 FROM whyour/qinglong:debian
 
-# 切换为 root 用户以安装软件
 USER root
 
-# 设置时区
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# 替换为国内镜像源 (Debian Bookworm) 以加速安装
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources || true \
+    && sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list || true \
+    && sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list || true
 
-# 【关键修改】直接使用阿里云 Debian 镜像源（适配 bookworm）
-RUN echo "\
-deb https://mirrors.aliyun.com/debian/ bookworm main contrib non-free\
-deb https://mirrors.aliyun.com/debian/ bookworm-updates main contrib non-free\
-deb https://mirrors.aliyun.com/debian-security/ bookworm-security main contrib non-free\
-" > /etc/apt/sources.list
-
-# 更新软件包索引并安装必要工具和依赖
+# 安装 X11, VNC, noVNC 和浏览器所需的依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
-    x11-utils \
-    fonts-wqy-zenhei \
-    fonts-freefont-ttf \
-    curl \
-    ca-certificates \
-    dbus \
-    dbus-user-session \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装 Chromium 及其所有必要依赖（增加重试机制）
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
+    x11vnc \
+    fluxbox \
+    novnc \
+    websockify \
     chromium \
     chromium-driver \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libc6 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
+    fonts-wqy-zenhei \
     libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libgbm1 \
+    libasound2 \
     libxcomposite1 \
-    libxcursor1 \
     libxdamage1 \
+    libxrandr2 \
     libxext6 \
     libxfixes3 \
     libxi6 \
-    libxrandr2 \
+    libxtst6 \
     libxrender1 \
     libxss1 \
-    libxtst6 \
-    lsb-release \
-    wget \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /var/cache/apt/archives/*
+    libxshmfence1 \
+    libwayland-client0 \
+    libwayland-server0 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libgtk-3-0 \
+    xterm \
+    && rm -rf /var/lib/apt/lists/*
 
-# 创建符号链接保持兼容性
-RUN ln -sf /usr/bin/chromium /usr/bin/chromium-browser \
-    && ln -sf /usr/bin/chromium /usr/bin/google-chrome
+# 创建 noVNC 的入口 (使用 cp 替代 ln -s 以防 websockify 不支持软链)
+RUN cp /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-# 验证 Chromium 是否安装成功
-RUN chromium --version
+# 暴露端口: 5700 (青龙Web), 6080 (VNC 监控 Web 界面)
+EXPOSE 5700 6080
 
-# 声明容器暴露的端口
-EXPOSE 5700
+# 复制启动配置
+COPY docker/start-vnc.sh /usr/local/bin/start-vnc.sh
+RUN chmod +x /usr/local/bin/start-vnc.sh
 
-# 启动系统DBus服务（需要root权限）
-RUN mkdir -p /var/run/dbus
-RUN chown root:root /var/run/dbus
-RUN chmod 755 /var/run/dbus
-
-# 启动命令：启动系统DBus + 虚拟显示器 + 青龙面板
+# 设置环境变量
 ENV DISPLAY=:99
+ENV HEADLESS=false
 ENV CHROME_BIN=/usr/bin/chromium
-ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
-ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/dbus.sock
-ENV NO_AT_BRIDGE=1
-ENV GDK_BACKEND=x11
+ENV NODE_PATH=/usr/local/lib/node_modules
 
-# 复制启动脚本（需要root权限）
-COPY start-services.sh /ql/scripts/start-services.sh
-RUN chmod +x /ql/scripts/start-services.sh
+# 预安装 Playwright 核心依赖 (可选，方便脚本直接运行)
+RUN npm install -g playwright playwright-chromium
 
-# 创建一个入口脚本，先以root启动系统服务，再切换到qinglong用户
-RUN cat <<EOF > /usr/local/bin/entrypoint.sh
-#!/bin/bash
-# 启动系统DBus服务
-mkdir -p /var/run/dbus
-dbus-daemon --system --fork --nopidfile --address=unix:path=/var/run/dbus/system_bus_socket
-
-# 切换到qinglong用户执行后续命令
-su -l qinglong -c "$@"
-EOF
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# 最后以root用户启动，由entrypoint.sh切换到qinglong用户
-CMD ["/usr/local/bin/entrypoint.sh", "/ql/scripts/start-services.sh"]
+# 使用自定义脚本作为启动入口，以支持有头模式所需的 VNC 环境
+ENTRYPOINT ["/usr/local/bin/start-vnc.sh"]
