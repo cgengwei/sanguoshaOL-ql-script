@@ -6,5 +6,4 @@ chrome_data/
 
 screenshots/
 .idea/
-docker/
 package-lock.json
