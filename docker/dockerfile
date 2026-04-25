@@ -40,6 +40,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libgtk-3-0 \
     xterm \
+    dbus-x11 \
+    psmisc \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建 noVNC 的入口 (使用 cp 替代 ln -s 以防 websockify 不支持软链)
